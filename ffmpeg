@@ -1,0 +1,41 @@
+#!/bin/zsh
+
+# Create a temporary directory
+temp_dir=$(mktemp -d)
+trap 'rm -rf "$temp_dir"' EXIT
+
+# Function to process file path
+process_file_path() {
+    local file_path="$1"
+    local temp_file="$temp_dir/$(basename "$file_path")"
+    if [[ -f "$file_path" ]]; then
+        cp "$file_path" "$temp_file"
+    fi
+    echo "/workdir/$(basename "$temp_file")"
+}
+
+# Prepare arguments for Docker
+docker_args=()
+for arg in "$@"; do
+    if [[ -e "$arg" ]] || [[ "$arg" == */* ]]; then
+        # If argument is a file/directory or looks like a path
+        docker_args+=("$(process_file_path "$arg")")
+    else
+        docker_args+=("$arg")
+    fi
+done
+
+# Output the invocation parameters
+echo "Docker FFmpeg invocation:"
+echo "docker run --rm -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ${docker_args[@]}"
+
+# Run FFmpeg in Docker
+docker run --rm -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg "${docker_args[@]}"
+
+# Copy output files back to the current directory
+for file in "$temp_dir"/*; do
+    if [[ -f "$file" && "$file" != "$temp_dir/$(basename "$1")" ]]; then
+        cp "$file" "./$(basename "$file")"
+        echo "Copied output file: $(basename "$file")"
+    fi
+done
