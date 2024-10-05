@@ -33,9 +33,4 @@ echo "docker run --rm -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg $
 docker run --rm -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg "${docker_args[@]}"
 
 # Copy output files back to the current directory
-for file in "$temp_dir"/*; do
-    if [[ -f "$file" && "$file" != "$temp_dir/$(basename "$1")" ]]; then
-        cp "$file" "./$(basename "$file")"
-        echo "Copied output file: $(basename "$file")"
-    fi
-done
+cp "$temp_dir"/* ./
