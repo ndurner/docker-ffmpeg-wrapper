@@ -31,10 +31,10 @@ done
 
 # Run FFmpeg in Docker
 if $output_to_stdout; then
-    echo "docker run --rm -i -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ${docker_args[@]}"
+    echo "docker run --rm -i -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ${docker_args[@]}" >&2
     docker run --rm -i -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg "${docker_args[@]}"
 else
-    echo "docker run --rm -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ${docker_args[@]}"
+    echo "docker run --rm -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ${docker_args[@]}" >&2
     docker run --rm -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg "${docker_args[@]}"
     # Copy output files back to the current directory
     cp "$temp_dir"/* ./
