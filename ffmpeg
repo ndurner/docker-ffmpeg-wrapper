@@ -16,8 +16,12 @@ process_file_path() {
 
 # Prepare arguments for Docker
 docker_args=()
+output_to_stdout=false
 for arg in "$@"; do
-    if [[ -e "$arg" ]] || [[ "$arg" == */* ]]; then
+    if [[ "$arg" == "-" ]]; then
+        output_to_stdout=true
+        docker_args+=("$arg")
+    elif [[ -e "$arg" ]] || [[ "$arg" == */* ]]; then
         # If argument is a file/directory or looks like a path
         docker_args+=("$(process_file_path "$arg")")
     else
@@ -25,12 +29,13 @@ for arg in "$@"; do
     fi
 done
 
-# Output the invocation parameters
-echo "Docker FFmpeg invocation:"
-echo "docker run --rm -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ${docker_args[@]}"
-
 # Run FFmpeg in Docker
-docker run --rm -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg "${docker_args[@]}"
-
-# Copy output files back to the current directory
-cp "$temp_dir"/* ./
+if $output_to_stdout; then
+    echo "docker run --rm -i -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ${docker_args[@]}"
+    docker run --rm -i -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg "${docker_args[@]}"
+else
+    echo "docker run --rm -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ${docker_args[@]}"
+    docker run --rm -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg "${docker_args[@]}"
+    # Copy output files back to the current directory
+    cp "$temp_dir"/* ./
+fi
