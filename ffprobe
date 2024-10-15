@@ -33,20 +33,19 @@ for arg in "$@"; do
     fi
 done
 
-# Run FFmpeg in Docker
+# Run FFprobe in Docker
 if $input_from_stdin && $output_to_stdout; then
-    echo "docker run --rm -i -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ${docker_args[@]}" >&2
-    docker run --rm -i -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg "${docker_args[@]}"
+    echo "docker run --rm -i -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ffprobe ${docker_args[@]}" >&2
+    docker run --rm -i -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg ffprobe "${docker_args[@]}"
 elif $input_from_stdin; then
-    echo "docker run --rm -i -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ${docker_args[@]}" >&2
-    docker run --rm -i -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg "${docker_args[@]}"
+    echo "docker run --rm -i -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ffprobe ${docker_args[@]}" >&2
+    docker run --rm -i -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg ffprobe "${docker_args[@]}"
     cp "$temp_dir"/* ./
 elif $output_to_stdout; then
-    echo "docker run --rm -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ${docker_args[@]}" >&2
-    docker run --rm -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg "${docker_args[@]}"
+    docker run --rm -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg ffprobe "${docker_args[@]}"
 else
-    echo "docker run --rm -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ${docker_args[@]}" >&2
-    docker run --rm -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg "${docker_args[@]}"
+    echo "docker run --rm -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ffprobe ${docker_args[@]}" >&2
+    docker run --rm -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg ffprobe "${docker_args[@]}"
     # Copy output files back to the current directory
     cp "$temp_dir"/* ./
 fi
