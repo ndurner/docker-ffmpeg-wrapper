@@ -1,15 +1,29 @@
 #!/bin/zsh
 
+# Logging setup
+LOGFILE="/tmp/ffprobe-wrapper.log"
+log() {
+    if [[ -n "${FFPROBE_WRAPPER_DEBUG}" ]]; then
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$$] $*" >> "${LOGFILE}"
+    fi
+}
+
 # Create a temporary directory
 temp_dir=$(mktemp -d)
-trap 'rm -rf "$temp_dir"' EXIT
+log "Created temporary directory: $temp_dir"
+trap 'log "Cleaning up temporary directory: $temp_dir"; rm -rf "$temp_dir"' EXIT
 
 # Function to process file path
 process_file_path() {
     local file_path="$1"
-    local temp_file="$temp_dir/$(basename "$file_path")"
-    if [[ -f "$file_path" ]]; then
-        cp "$file_path" "$temp_file"
+    # Remove 'file:' prefix if present
+    local cleaned_path="${file_path#file:}"
+    local temp_file="$temp_dir/$(basename "$cleaned_path")"
+    if [[ -f "$cleaned_path" ]]; then
+        log "Copying file to temp directory: $cleaned_path -> $temp_file"
+        cp "$cleaned_path" "$temp_file"
+    else
+        log "Warning: File not found: $cleaned_path"
     fi
     echo "/workdir/$(basename "$temp_file")"
 }
@@ -18,34 +32,65 @@ process_file_path() {
 docker_args=()
 input_from_stdin=false
 output_to_stdout=false
+log "Processing arguments: $*"
 for arg in "$@"; do
     if [[ "$arg" == "-" || "$arg" == "pipe:0" ]]; then
         input_from_stdin=true
         docker_args+=("$arg")
+        log "Input from stdin detected"
     elif [[ "$arg" == "pipe:1" ]]; then
         output_to_stdout=true
         docker_args+=("$arg")
-    elif [[ -e "$arg" ]] || [[ "$arg" == */* ]]; then
-        # If argument is a file/directory or looks like a path
-        docker_args+=("$(process_file_path "$arg")")
+        log "Output to stdout detected"
+    elif [[ "$arg" == file:* || -e "${arg#file:}" ]] || [[ "$arg" == */* ]]; then
+        # If argument starts with file: or is a file/directory or looks like a path
+        processed_arg=$(process_file_path "$arg")
+        docker_args+=("$processed_arg")
+        log "Processed file path: $arg -> $processed_arg"
     else
         docker_args+=("$arg")
+        log "Added regular argument: $arg"
     fi
 done
 
+# Function to run docker with logging
+run_docker() {
+    local cmd=("$@")
+    log "Executing docker command: ${cmd[*]}"
+    if [[ -n "${FFPROBE_WRAPPER_DEBUG}" ]]; then
+        "${cmd[@]}" 2> >(while read -r line; do log "stderr: $line"; done)
+    else
+        "${cmd[@]}"
+    fi
+}
+
 # Run FFprobe in Docker
+docker_base_cmd=(docker run --rm -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg ffprobe)
+
 if $input_from_stdin && $output_to_stdout; then
-    echo "docker run --rm -i -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ffprobe ${docker_args[@]}" >&2
-    docker run --rm -i -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg ffprobe "${docker_args[@]}"
+    log "Running with stdin and stdout"
+    run_docker "${docker_base_cmd[@]}" -i "${docker_args[@]}"
 elif $input_from_stdin; then
-    echo "docker run --rm -i -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ffprobe ${docker_args[@]}" >&2
-    docker run --rm -i -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg ffprobe "${docker_args[@]}"
-    cp "$temp_dir"/* ./
+    log "Running with stdin"
+    run_docker "${docker_base_cmd[@]}" -i "${docker_args[@]}"
+    if [ "$(ls -A "$temp_dir")" ]; then
+        log "Copying output files from temp directory"
+        cp "$temp_dir"/* ./
+    else
+        log "No output files to copy from temp directory"
+    fi
 elif $output_to_stdout; then
-    docker run --rm -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg ffprobe "${docker_args[@]}"
+    log "Running with stdout"
+    run_docker "${docker_base_cmd[@]}" "${docker_args[@]}"
 else
-    echo "docker run --rm -v \"$temp_dir:/workdir\" -w /workdir jrottenberg/ffmpeg ffprobe ${docker_args[@]}" >&2
-    docker run --rm -v "$temp_dir:/workdir" -w /workdir jrottenberg/ffmpeg ffprobe "${docker_args[@]}"
-    # Copy output files back to the current directory
-    cp "$temp_dir"/* ./
+    log "Running normal mode"
+    run_docker "${docker_base_cmd[@]}" "${docker_args[@]}"
+    if [ "$(ls -A "$temp_dir")" ]; then
+        log "Copying output files from temp directory"
+        cp "$temp_dir"/* ./
+    else
+        log "No output files to copy from temp directory"
+    fi
 fi
+
+log "Script completed successfully"
