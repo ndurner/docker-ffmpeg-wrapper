@@ -1,4 +1,9 @@
 #!/bin/zsh
+# At the start of your script, after the shebang
+if [[ "$1" == "-bsfs" || "$1" == "-version" || "$1" == "--version" ]]; then
+    docker run --rm jrottenberg/ffmpeg "$1"
+    exit $?
+fi
 
 # Create a temporary directory
 temp_dir=$(mktemp -d)
